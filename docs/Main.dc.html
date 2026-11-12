@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>동의서 컴플라이언스 체커 - 입력 및 결과 화면</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  ::placeholder { color: #AEAEB2; }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  @keyframes dcc-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .dcc-spinner { animation: dcc-spin 0.9s linear infinite; }
+</style>
+</helmet>
+
+<div style="width: 100%; min-height: 900px; background: #ffffff; display: flex; flex-direction: column; align-items: center; padding: 96px 24px 120px;">
+
+  <div style="width: 100%; max-width: 560px; display: flex; flex-direction: column; align-items: center;">
+
+    <div style="width: 44px; height: 44px; border-radius: 12px; background: #1D1D1F; display: flex; align-items: center; justify-content: center; margin-bottom: 28px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 4H14L19 9V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V5C5 4.44772 5.44772 4 6 4Z" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M14 4V9H19" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M8.5 13.5L10.5 15.5L15 11" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <sc-if value="{{isEditing}}" hint-placeholder-val="{{true}}">
+      <h1 style="margin: 0 0 10px; font-size: 32px; line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; color: #1D1D1F; text-align: center;">동의서, 놓친 부분은 없을까요</h1>
+      <p style="margin: 0 0 40px; font-size: 17px; line-height: 1.5; color: #86868B; text-align: center; max-width: 420px;">설문·연구 동의서를 분석해 누락된 항목과 모호한 표현을 짚어드립니다</p>
+    </sc-if>
+
+    <sc-if value="{{isEditing}}" hint-placeholder-val="{{true}}">
+
+      <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+
+        <div style="display: inline-flex; padding: 3px; background: #F5F5F7; border-radius: 10px; margin-bottom: 24px;">
+          <button onClick="{{setUrlMode}}" style="{{urlTabStyle}}">URL 입력</button>
+          <button onClick="{{setTextMode}}" style="{{textTabStyle}}">텍스트 붙여넣기</button>
+        </div>
+
+        <div style="width: 100%; margin-bottom: 8px;">
+
+          <sc-if value="{{isUrl}}" hint-placeholder-val="{{true}}">
+            <label for="url-field" style="display: block; font-size: 13px; font-weight: 500; color: #86868B; margin-bottom: 8px;">네이버폼 링크</label>
+            <input id="url-field" type="text" value="{{urlValue}}" onChange="{{onUrlChange}}" placeholder="https://form.naver.com/..." style="width: 100%; height: 52px; padding: 0 16px; font-size: 16px; color: #1D1D1F; background: #ffffff; border: 1px solid #D2D2D7; border-radius: 12px; outline: none; font-family: inherit;" />
+          </sc-if>
+
+          <sc-if value="{{isText}}" hint-placeholder-val="{{false}}">
+            <label for="text-field" style="display: block; font-size: 13px; font-weight: 500; color: #86868B; margin-bottom: 8px;">수집 목적 · 수집 항목 · 보유 및 파기 기한</label>
+            <textarea id="text-field" onChange="{{onTextChange}}" placeholder="수집 목적: 설문조사 응답자 기프티콘 보상&#10;수집 항목: 이름, 휴대폰 전화번호&#10;보유 및 이용 기간: 입력일로부터 6개월 후 파기" style="width: 100%; height: 160px; padding: 14px 16px; font-size: 16px; line-height: 1.5; color: #1D1D1F; background: #ffffff; border: 1px solid #D2D2D7; border-radius: 12px; outline: none; resize: none; font-family: inherit; white-space: pre-wrap;">{{textValue}}</textarea>
+            <p style="margin: 8px 0 0; font-size: 13px; color: #AEAEB2;">동의서에 적힌 수집 목적, 수집 항목, 보유기간(파기일)을 그대로 옮겨 적어주세요</p>
+          </sc-if>
+
+        </div>
+
+        <sc-if value="{{hasError}}" hint-placeholder-val="{{false}}">
+          <p style="width: 100%; margin: 0 0 8px; font-size: 13px; color: #D70015; text-align: left;">{{errorMessage}}</p>
+        </sc-if>
+
+        <sc-if value="{{hasUrlNotice}}" hint-placeholder-val="{{false}}">
+          <div style="width: 100%; margin: 8px 0 0; padding: 16px; background: #F5F5F7; border-radius: 12px;">
+            <p style="margin: 0 0 6px; font-size: 14px; font-weight: 600; color: #1D1D1F;">링크 안의 동의서는 아직 자동으로 읽어 올 수 없어요</p>
+            <p style="margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: #6E6E73;">네이버폼 내용을 가져오는 기능은 서버 연동 단계에서 추가될 예정이에요. 지금은 동의서의 수집 목적, 수집 항목, 보유기간 문구를 복사해서 붙여넣으면 바로 분석해 드려요.</p>
+            <button onClick="{{setTextMode}}" style="padding: 0; border: none; background: none; font-size: 14px; font-weight: 500; color: #0071E3; cursor: pointer; font-family: inherit;">텍스트로 붙여넣기 →</button>
+          </div>
+        </sc-if>
+
+        <button onClick="{{onSubmit}}" style="width: 100%; height: 52px; margin-top: 16px; background: #0071E3; color: #ffffff; font-size: 17px; font-weight: 500; border: none; border-radius: 12px; cursor: pointer; font-family: inherit;">분석 시작하기</button>
+
+        <p style="margin: 16px 0 0; font-size: 13px; color: #AEAEB2; text-align: center;">입력하신 내용은 필수항목 누락 · 모호한 표현 · 과도한 정보 수집 여부를 검토하는 데 사용돼요</p>
+
+      </div>
+
+    </sc-if>
+
+    <sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}">
+
+      <div style="width: 100%; display: flex; flex-direction: column; align-items: center; padding: 64px 40px;">
+        <div class="dcc-spinner" style="width: 32px; height: 32px; border-radius: 50%; border: 3px solid #E5E5EA; border-top-color: #0071E3; margin-bottom: 24px;"></div>
+        <p style="margin: 0 0 6px; font-size: 17px; font-weight: 500; color: #1D1D1F; text-align: center;">동의서를 분석하고 있어요</p>
+        <p style="margin: 0; font-size: 14px; color: #86868B; text-align: center;">필수항목 · 표현 · 과도수집 · 동의절차를 확인하는 중</p>
+      </div>
+
+    </sc-if>
+
+    <sc-if value="{{isResult}}" hint-placeholder-val="{{false}}">
+
+      <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+
+        <div style="width: 100%; padding: 32px; border: 1px solid #D2D2D7; border-radius: 18px; display: flex; flex-direction: column; align-items: center; margin-bottom: 20px;">
+          <p style="margin: 0 0 8px; font-size: 13px; font-weight: 500; color: #86868B;">항목 충족률</p>
+          <p style="margin: 0 0 6px; font-size: 56px; font-weight: 600; letter-spacing: -0.02em; color: {{scoreColor}};">{{score}}<span style="font-size: 22px; color: #AEAEB2; font-weight: 500;">%</span></p>
+          <p style="margin: 0; padding: 4px 14px; border-radius: 100px; font-size: 13px; font-weight: 500; background: {{scoreBg}}; color: {{scoreColor}};">{{scoreLabel}}</p>
+          <sc-if value="{{hasCritical}}" hint-placeholder-val="{{false}}">
+            <p style="margin: 10px 0 0; font-size: 12px; color: #D70015;">{{criticalText}}</p>
+          </sc-if>
+          <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px;">
+            <sc-for list="{{groupSummary}}" as="g" hint-placeholder-count="4">
+              <span style="padding: 4px 10px; border-radius: 100px; font-size: 12px; font-weight: 500; background: {{g.bg}}; color: {{g.color}};">{{g.text}}</span>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="width: 100%; border: 1px solid #D2D2D7; border-radius: 18px; padding: 8px; margin-bottom: 20px;">
+          <sc-for list="{{checklist}}" as="item" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; padding: 12px 14px; border-radius: 12px;">
+              <div style="width: 22px; height: 22px; border-radius: 50%; background: {{item.iconBg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 12px;">
+                <sc-if value="{{item.passed}}" hint-placeholder-val="{{true}}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13L9.5 17.5L19 7" stroke="#1E8E3E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </sc-if>
+                <sc-if value="{{item.failed}}" hint-placeholder-val="{{false}}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M18 6L6 18" stroke="#D70015" stroke-width="2.5" stroke-linecap="round"/></svg>
+                </sc-if>
+              </div>
+              <div style="flex: 1;">
+                <p style="margin: 0; font-size: 15px; color: #1D1D1F;">{{item.label}}</p>
+                <p style="margin: 2px 0 0; font-size: 12px; color: #AEAEB2;">{{item.weightLabel}}</p>
+              </div>
+              <span style="font-size: 13px; color: #86868B;">{{item.deductionLabel}}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <p style="width: 100%; margin: -8px 0 20px; font-size: 12px; line-height: 1.5; color: #AEAEB2; text-align: center;">충족률 = 충족한 항목 수 ÷ 전체 10개 항목 × 100 · 가중치와 부분 점수 없음</p>
+
+        <div style="width: 100%; border: 1px solid #D2D2D7; border-radius: 16px; padding: 16px 20px; margin-bottom: 20px;">
+          <button onClick="{{toggleMethod}}" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0; border: none; background: none; font-size: 15px; font-weight: 600; color: #1D1D1F; cursor: pointer; font-family: inherit; text-align: left;">
+            <span>점수는 왜 이렇게 계산하나요?</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="transition: transform 0.2s; transform: {{methodChevron}};"><path d="M6 9L12 15L18 9" stroke="#86868B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <sc-if value="{{showMethod}}" hint-placeholder-val="{{false}}">
+            <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #F0F0F2;">
+              <p style="margin: 0 0 4px; font-size: 12px; font-weight: 500; color: #86868B;">계산 방법</p>
+              <p style="margin: 0 0 14px; font-size: 14px; line-height: 1.6; color: #1D1D1F;">점검 항목 10개를 각각 "충족 / 미충족" 두 가지로만 판정하고, 충족한 항목 수 ÷ 10 × 100을 점수로 씁니다. 같은 문구를 넣으면 항상 같은 점수가 나옵니다.</p>
+              <p style="margin: 0 0 4px; font-size: 12px; font-weight: 500; color: #86868B;">항목마다 가중치를 다르게 주지 않는 이유</p>
+              <p style="margin: 0 0 14px; font-size: 14px; line-height: 1.6; color: #1D1D1F;">항목은 모두 개인정보보호법 조항에서 가져왔습니다. 그중 제15조·제16조·제22조 위반의 법정 과태료 상한은 모두 3천만원 이하로 같은 등급이라, 법으로는 어느 항목이 더 중요하다고 가를 근거가 없습니다. 그래서 임의 배점과 부분 점수(0.5점), 등급 구간(예: 90점 이상 적합)은 쓰지 않았습니다.</p>
+              <p style="margin: 0 0 4px; font-size: 12px; font-weight: 500; color: #86868B;">판정 기준과 근거 조항</p>
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+                <sc-for list="{{methodRows}}" as="m" hint-placeholder-count="3">
+                  <div style="padding: 10px 12px; background: #F5F5F7; border-radius: 10px;">
+                    <p style="margin: 0 0 3px; font-size: 13px; font-weight: 600; color: #1D1D1F;">{{m.group}} · {{m.label}}</p>
+                    <p style="margin: 0 0 3px; font-size: 13px; line-height: 1.5; color: #6E6E73;">{{m.criteria}}</p>
+                    <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #86868B;">근거: {{m.legal}}</p>
+                  </div>
+                </sc-for>
+              </div>
+              <p style="margin: 0 0 4px; font-size: 12px; font-weight: 500; color: #86868B;">"법 위반 소지" 표시</p>
+              <p style="margin: 0 0 14px; font-size: 14px; line-height: 1.6; color: #1D1D1F;">민감·고유식별정보 수집(제23·24조)과 강제 동의(제22조제5항)는 점수와 별개로 따로 표시합니다. 다른 항목보다 중요하다고 점수를 더 깎는 대신, 눈에 띄게 알려주기만 합니다.</p>
+              <p style="margin: 0 0 4px; font-size: 12px; font-weight: 500; color: #86868B;">알아둘 점</p>
+              <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #6E6E73;">현재는 문구 속 표현을 규칙으로 찾는 방식이라 문장이 특이하면 놓칠 수 있습니다. 이 점수는 참고용 점검 결과이며 법률 의견이 아닙니다.</p>
+            </div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{hasIssues}}" hint-placeholder-val="{{true}}">
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 16px; margin-bottom: 8px;">
+            <sc-for list="{{issues}}" as="issue" hint-placeholder-count="2">
+              <div style="width: 100%; border: 1px solid #D2D2D7; border-radius: 16px; padding: 20px;">
+                <p style="margin: 0 0 10px; font-size: 15px; font-weight: 600; color: #1D1D1F;">{{issue.title}}</p>
+                <div style="padding: 10px 12px; background: #FEF3E7; border-radius: 10px; margin-bottom: 10px; font-size: 14px; line-height: 1.5; color: #1D1D1F;">{{issue.original}}</div>
+                <p style="margin: 0 0 4px; font-size: 12px; font-weight: 500; color: #86868B;">수정 제안</p>
+                <div style="padding: 10px 12px; background: #E8F5E9; border-radius: 10px; margin-bottom: 8px; font-size: 14px; line-height: 1.5; color: #1D1D1F;">{{issue.suggestion}}</div>
+                <button onClick="{{issue.toggle}}" style="display: flex; align-items: center; gap: 6px; padding: 6px 0; border: none; background: none; font-size: 13px; font-weight: 500; color: #0071E3; cursor: pointer; font-family: inherit;">
+                  <span>왜 문제인가요? · 법적 근거</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="transition: transform 0.2s; transform: {{issue.chevronRotate}};"><path d="M6 9L12 15L18 9" stroke="#0071E3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <sc-if value="{{issue.isOpen}}" hint-placeholder-val="{{false}}">
+                  <div style="margin-top: 6px; padding-top: 12px; border-top: 1px solid #F0F0F2;">
+                    <p style="margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: #86868B;">{{issue.problem}}</p>
+                    <p style="margin: 0 0 4px; font-size: 12px; font-weight: 500; color: #86868B;">법적 근거</p>
+                    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #6E6E73;">{{issue.legal}}</p>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{noIssues}}" hint-placeholder-val="{{false}}">
+          <p style="margin: 8px 0 0; font-size: 15px; color: #1E8E3E;">수정이 필요한 부분이 발견되지 않았어요</p>
+        </sc-if>
+
+        <p style="margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: #AEAEB2; text-align: center;">이 점수는 참고용 점검 결과이며 법률 의견이나 법 준수 확인이 아닙니다</p>
+
+        <button onClick="{{reset}}" style="margin-top: 20px; padding: 0; border: none; background: none; font-size: 15px; font-weight: 500; color: #0071E3; cursor: pointer; font-family: inherit;">다시 분석하기</button>
+
+      </div>
+
+    </sc-if>
+
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+const DEMO_TEXT = `개인정보 수집 및 이용에 동의해 주세요. 동의한 사람에 한해 이벤트 추첨이 진행됩니다.
+1. 수집 목적: 설문조사 응답자 기프티콘 보상
+2. 수집 항목: 이름, 휴대폰 전화번호 등
+3. 보유 및 이용 기간: 필요시까지`;
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      screen: 'edit',
+      mode: 'url',
+      urlValue: '',
+      textValue: '',
+      errorMessage: '',
+      urlNotice: false,
+      showMethod: false,
+      analysisText: '',
+      openCards: {}
+    };
+  }
+
+  tabStyle(active) {
+    return active
+      ? 'padding: 9px 18px; border: none; border-radius: 8px; background: #ffffff; color: #1D1D1F; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; box-shadow: 0 1px 3px rgba(0,0,0,0.08);'
+      : 'padding: 9px 18px; border: none; border-radius: 8px; background: transparent; color: #86868B; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit;';
+  }
+
+  // 규칙 기반 목업 분석 (실제 LLM 분석은 백엔드 연동 후 대체)
+  analyze(text) {
+    const t = text || '';
+    const grab = (re) => { const m = t.match(re); return m ? m[1].trim() : ''; };
+    const lineOf = (re) => { const m = t.match(re); return m ? m[0].trim() : ''; };
+    // 라벨 표기가 달라도(콜론, 탭, 줄바꿈, 표 복사) 값을 찾는다
+    const LABELS = {
+      purpose: '수집\\s*(?:및|·)?\\s*이용(?:하는)?\\s*(?:개인정보\\s*)?목적|수집\\s*목적|이용\\s*목적|Purpose(?:\\s*of\\s*(?:collection|use))?',
+      items: '수집\\s*(?:및|·)?\\s*이용(?:하는)?\\s*개인정보\\s*항목|수집(?:하는)?\\s*(?:개인정보\\s*)?항목|개인정보\\s*항목|Items?\\s*collected|Data\\s*items?',
+      period: '보유\\s*(?:및|·)?\\s*이용\\s*기간|보유\\s*기간|이용\\s*기간|Retention(?:\\s*period)?'
+    };
+    const extract = (key) => {
+      const re = new RegExp('(?:' + LABELS[key] + ')[ \\t]*[:：]?[ \\t]*\\n?[ \\t]*([^\\n]+)', 'i');
+      const m = t.match(re);
+      if (!m) return { value: '', line: '' };
+      const value = m[1].trim();
+      if (!value || /^(?:수집|보유|이용)/.test(value)) return { value: '', line: '' };
+      return { value, line: m[0].replace(/\\s*\\n\\s*/g, ' ').replace(/\\t+/g, ': ').trim() };
+    };
+    const ex = { purpose: extract('purpose'), items: extract('items'), period: extract('period') };
+    const purpose = ex.purpose.value, items = ex.items.value, period = ex.period.value;
+    const purposeLine = ex.purpose.line, itemsLine = ex.items.line, periodLine = ex.period.line;
+
+    const credits = {};
+    const cards = [];
+    const addCard = (c) => cards.push(c);
+
+    // ① 필수항목 + ② 표현
+    credits['1a'] = purpose ? 1 : 0;
+    credits['1b'] = items ? 1 : 0;
+    const vaguePeriod = /필요\s*시까지|필요한\s*기간|일정\s*기간|영구|목적\s*달성\s*시|종료\s*시|종료\s*후(?!\s*(?:\d|즉시|바로|한|두|세|네))|별도\s*고지\s*시까지/.test(period);
+    const concretePeriod = /\d+\s*(?:일|주|개월|달|년)|\d{4}\s*[년.\-\/]\s*\d{1,2}|즉시\s*(?:파기|삭제)|(?:한|두|세|네|다섯|여섯|열)\s*(?:달|주|해)|(?:일|이|삼|육|십|십이)\s*개월|(?:일|이|삼|오|십)\s*년/.test(period);
+    credits['1c'] = period ? 1 : 0;
+    credits['2c'] = (period && !vaguePeriod && concretePeriod) ? 1 : 0;
+
+    const purposeVague = /등\s*$|서비스\s*개선|마케팅|홍보|광고|이벤트\s*안내|향후/.test(purpose);
+    const itemsVague = /(?:^|[\s,·、(])등(?=$|[\s,·、.)])/.test(items);
+    credits['2a'] = !purpose ? 0 : (purposeVague ? 0 : 1);
+    credits['2b'] = !items ? 0 : (itemsVague ? 0 : 1);
+
+    // ③ 과도한 수집
+    const cats = [
+      [/주민\s*(?:등록\s*)?번호/, '주민등록번호'],
+      [/주소|거주지/, '주소'],
+      [/가족|혼인|배우자|결혼/, '가족·혼인 정보'],
+      [/소득|재산|연봉|월급/, '소득·재산'],
+      [/계좌\s*번호|카드\s*번호|신용\s*카드|체크\s*카드/, '금융정보']
+    ];
+    // "이메일 주소"는 거주지 주소가 아니므로 제외하고 판단
+    const itemsForCat = items.replace(/(?:이메일|메일|e-?mail)\s*주소/gi, '');
+    let hitCats = cats.filter(([re, name]) => {
+      if (!re.test(itemsForCat)) return false;
+      if (name === '주소' && /배송|택배|우편|발송/.test(purpose)) return false;
+      if (name === '금융정보' && /환급|환불|지급|송금|입금|결제|정산|사례금/.test(purpose)) return false;
+      return true;
+    }).map(([, n]) => n);
+    credits['3a'] = hitCats.length === 0 ? 1 : 0;
+    const sensRe = /주민\s*(?:등록\s*)?번호|여권|운전\s*면허|외국인\s*등록|건강|병력|질병|질환|진단|혈압|혈당|약물|복용|처방|투약|치료|수술|입원|증상|장애|우울|임신|정신|종교|정치\s*성향|범죄|유전|생체/;
+    const sensHit = (items.match(sensRe) || [''])[0];
+    const sepConsent = /별도(?:의|로)?\s*동의/.test(t);
+    credits['3b'] = (sensHit && !sepConsent) ? 0 : 1;
+
+    // ④ 동의 절차
+    const forcedLine = lineOf(/[^\n.]*(?:동의하셔야|동의해야|동의하지\s*않으(?:면|시면)[^\n.]*(?:없습니다|불가|제한|어렵)|동의하지\s*않(?:을\s*경우|는\s*경우|을\s*시)[^\n.]*(?:참여|진행|응답|이용|가입)[^\n.]*(?:없습니다|불가|제한|어렵)|거부\s*시[^\n.]*(?:참여|지원|진행|이용|가입)[^\n.]*(?:불가|제한|어렵))[^\n.]*/);
+    const notice = /거부\s*(?:하실\s*|할\s*)?(?:권리|수\s*있)|거부(?:하셔도|해도|하더라도)|동의하지\s*(?:않으셔도|않아도|않을\s*수)|동의\s*거부\s*시|동의한\s*사람에\s*한해|동의\s*여부(?:와|에)?\s*관계\s*없이|불이익(?:은|이)?\s*없|원치\s*않|응하지\s*않으셔도/.test(t);
+    credits['4b'] = forcedLine ? 0 : 1;
+    credits['4a'] = notice ? 1 : 0;
+
+    // 카드 생성
+    if (!purpose) addCard({ title: '수집·이용 목적 누락', original: '(수집 목적이 기재되지 않음)', problem: '법정 필수 고지사항인 수집·이용 목적이 없습니다.', suggestion: '수집 목적: 설문조사 응답자 기프티콘 발송', legal: '개인정보보호법 제15조제2항 — 수집·이용 목적을 정보주체에게 알리고 동의를 받아야 합니다.' });
+    else if (purposeVague) addCard({ title: '수집 목적 표현 모호', original: purposeLine || purpose, problem: '"서비스 개선", "마케팅", "향후", 끝의 "등" 같은 표현은 목적을 특정할 수 없고, 다른 목적이 함께 끼어들 수 있습니다.', suggestion: '수집 목적을 이번 조사에 필요한 것만 구체적으로 적고, 이벤트·홍보 안내는 선택 동의로 분리하세요.', legal: '개인정보보호법 제15조제2항(목적 고지), 제16조제1항(목적에 필요한 최소한의 수집)' });
+    if (!items) addCard({ title: '수집 항목 누락', original: '(수집 항목이 기재되지 않음)', problem: '법정 필수 고지사항인 수집 항목이 없습니다.', suggestion: '수집 항목: 이름, 휴대폰 전화번호', legal: '개인정보보호법 제15조제2항 — 수집하는 개인정보의 항목을 알려야 합니다.' });
+    else if (itemsVague) addCard({ title: '수집 항목 표현 모호', original: itemsLine || items, problem: '포괄적 표현("등")으로 수집 항목이 불특정합니다.', suggestion: '수집 항목: ' + items.replace(/\s*등\s*$/, '').trim() + ' (해당 항목만 수집)', legal: '개인정보보호법 제15조제2항 — 수집 항목은 구체적으로 특정해 고지해야 합니다.' });
+    if (!period) addCard({ title: '보유·이용 기간 누락', original: '(보유 및 이용 기간이 기재되지 않음)', problem: '법정 필수 고지사항인 보유·이용 기간이 없고, 파기 시점도 알 수 없습니다.', suggestion: '보유 및 이용 기간: 입력일로부터 6개월 후 파기', legal: '개인정보보호법 제15조제2항(보유·이용 기간 고지), 제21조(개인정보의 파기)' });
+    else if (vaguePeriod) addCard({ title: '보유기간 표현 모호', original: periodLine || period, problem: concretePeriod ? '일부 자료는 기간이 구체적이지만, "종료 시까지" 같은 표현이 하나라도 있으면 파기 시점을 특정할 수 없어 "기간이 구체적" 항목이 미충족으로 판정돼요.' : '"필요시까지" 같은 표현은 파기 시점을 특정할 수 없어 "기간이 구체적" 항목이 미충족으로 판정돼요.', suggestion: '보유 및 이용 기간: 입력일로부터 6개월 후 파기 (자료별로 기간과 파기 시점을 날짜·기간으로 적기)', legal: '개인정보보호법 제15조제2항(보유·이용 기간 고지), 제21조(개인정보의 파기) — 보유기간을 구체적으로 알리고 기간이 지나면 지체 없이 파기해야 합니다.' });
+    if (hitCats.length > 0) addCard({ title: '목적과 무관한 과도한 수집', original: itemsLine || items, problem: hitCats.join(', ') + ' 항목이 수집 목적(' + (purpose || '미기재') + ')에 필요해 보이지 않습니다.', suggestion: '목적 달성에 꼭 필요한 항목만 남기고 삭제하세요. (예: 이름, 휴대폰 전화번호)', legal: '개인정보보호법 제16조제1항 — 목적에 필요한 최소한의 개인정보만 수집해야 하며, 최소 수집 입증책임은 처리자에게 있습니다.' });
+    if (credits['3b'] === 0) addCard({ title: '민감·고유식별정보 수집 (치명)', original: itemsLine || items, problem: '"' + sensHit + '" 관련 정보는 민감정보 또는 고유식별정보로, 일반 동의와 분리한 별도 동의 없이 수집할 수 없습니다.', suggestion: '연구에 꼭 필요하지 않다면 삭제하고, 필요하다면 별도 동의 문항을 만들어 분리하세요.', legal: '개인정보보호법 제23조(민감정보), 제24조(고유식별정보) — 별도 동의 또는 법령 근거가 필요합니다.' });
+    if (forcedLine) addCard({ title: '강제 동의 (치명)', original: forcedLine, problem: '필수 목적 외 정보까지 동의해야만 참여할 수 있게 하면 동의가 자유롭지 않습니다. 선택사항은 동의하지 않아도 서비스를 거부할 수 없습니다.', suggestion: '필수 동의(설문 진행에 꼭 필요한 항목)와 선택 동의(이벤트·후속 연락)를 분리하고, 선택 동의를 거부해도 참여할 수 있다고 적으세요.', legal: '개인정보보호법 제22조제5항 — 선택사항에 동의하지 않는다는 이유로 재화·서비스 제공을 거부해서는 안 됩니다. (과태료 3천만원 이하)' });
+    else if (!notice) addCard({ title: '동의 거부권·불이익 미고지', original: '(동의 거부 권리와 불이익에 대한 안내가 없음)', problem: '동의를 거부할 권리가 있다는 사실과 거부 시 불이익을 알려야 합니다.', suggestion: '"동의하지 않으셔도 설문 참여는 가능하며, 기프티콘 발송에서만 제외됩니다."', legal: '개인정보보호법 제15조제2항 — 동의 거부 권리 및 거부에 따른 불이익이 있다면 그 내용을 알려야 합니다.' });
+
+    return { credits, cards };
+  }
+
+  renderVals() {
+    const mode = this.state.mode;
+    const isUrl = mode === 'url';
+    const isText = mode === 'text';
+    const screen = this.state.screen;
+
+    const setUrlMode = () => this.setState({ mode: 'url', errorMessage: '', urlNotice: false });
+    const setTextMode = () => this.setState({ mode: 'text', errorMessage: '', urlNotice: false });
+    const onUrlChange = (e) => this.setState({ urlValue: e.target.value, urlNotice: false });
+    const onTextChange = (e) => this.setState({ textValue: e.target.value });
+
+    const onSubmit = () => {
+      if (isUrl) {
+        const v = (this.state.urlValue || '').trim();
+        if (!v) {
+          this.setState({ errorMessage: 'URL을 입력해 주세요' });
+          return;
+        }
+        if (!/^https?:\/\//i.test(v)) {
+          this.setState({ errorMessage: 'http:// 또는 https:// 로 시작하는 URL을 입력해 주세요' });
+          return;
+        }
+      } else {
+        const v = (this.state.textValue || '').trim();
+        if (v.length < 10) {
+          this.setState({ errorMessage: '동의서 내용을 입력해 주세요' });
+          return;
+        }
+      }
+      if (isUrl) {
+        // 링크 안의 동의서는 서버가 대신 읽어 와야 해서(백엔드 단계) 가짜 결과를 보여주지 않는다
+        this.setState({ urlNotice: true, errorMessage: '' });
+        return;
+      }
+      this.setState({ screen: 'loading', errorMessage: '', analysisText: this.state.textValue || '' });
+      setTimeout(() => {
+        this.setState({ screen: 'result' });
+      }, 1600);
+    };
+
+    const reset = () => this.setState({ screen: 'edit', errorMessage: '', openCards: {}, showMethod: false });
+
+    // 점검 항목 10개: 모두 예/아니오로만 판정 (가중치·부분 점수 없음)
+    // [id, 구분, 항목 이름]
+    // [id, 구분, 항목 이름, 판정 기준(문구에서 확인 가능한 것만), 근거 조항]
+    const CHECKS = [
+      ['1a', '① 필수항목', '수집·이용 목적이 적혀 있다', '"수집 목적" 칸에 내용이 있으면 충족', '개인정보보호법 제15조제2항'],
+      ['1b', '① 필수항목', '수집 항목이 적혀 있다', '"수집 항목" 칸에 내용이 있으면 충족', '개인정보보호법 제15조제2항'],
+      ['1c', '① 필수항목', '보유·이용 기간이 적혀 있다', '"보유 및 이용 기간" 칸에 내용이 있으면 충족', '개인정보보호법 제15조제2항'],
+      ['2a', '② 표현', '목적에 모호한 표현이 없다', '"서비스 개선·마케팅·홍보·광고·이벤트 안내·향후" 또는 끝의 "등"이 있으면 미충족', '제15조제2항 (목적을 구체적으로 고지)'],
+      ['2b', '② 표현', '수집 항목에 "등"이 없다', '항목이 "등"으로 끝나면 미충족', '제15조제2항 (항목을 특정해 고지)'],
+      ['2c', '② 표현', '기간이 날짜·기간 수치로 적혀 있다', '숫자+단위(일·주·개월·년), 날짜, "즉시 파기" 중 하나가 있고 "필요시까지·종료 시까지" 같은 표현이 없으면 충족', '제15조제2항, 제21조 (보유기간 고지·파기)'],
+      ['3a', '③ 과도한 수집', '목적과 무관한 항목을 수집하지 않는다', '주민등록번호, 주소(배송 목적이면 제외), 가족·혼인, 소득·재산, 계좌·카드번호(지급·환급 목적이면 제외) 중 하나라도 수집하면 미충족', '제16조제1항 (최소수집)'],
+      ['3b', '③ 과도한 수집', '민감·고유식별정보를 수집하지 않는다', '주민등록번호·여권·운전면허·외국인등록, 건강·병력·진단, 종교, 정치성향, 범죄, 유전, 생체 정보가 있고 "별도 동의" 문구가 없으면 미충족', '제23조(민감정보), 제24조(고유식별정보)'],
+      ['4a', '④ 동의 절차', '동의 거부 권리·불이익을 알린다', '"거부할 권리", "동의하지 않으셔도", "동의 거부 시" 등 안내 문구가 있으면 충족', '제15조제2항 (거부 권리·불이익 고지)'],
+      ['4b', '④ 동의 절차', '동의를 강제하지 않는다', '"동의하셔야", 동의하지 않으면 참여·진행이 불가·제한된다는 문구가 없으면 충족', '제22조제5항 (선택사항 미동의 시 거부 금지)']
+    ];
+    const methodRows = CHECKS.map(([id, group, label, criteria, legal]) => ({ id, group, label, criteria, legal }));
+    const toggleMethod = () => this.setState({ showMethod: !this.state.showMethod });
+    // 법 위반 소지 항목: 점수에 가중치로 반영하지 않고 별도로만 표시
+    const CRITICAL = ['3b', '4b'];
+    // 입력 텍스트를 규칙으로 분석 (URL 모드는 1주차 [X] 예시 사용)
+    const an = this.analyze(this.state.analysisText || DEMO_TEXT);
+    const credits = an.credits;
+
+    const passedCount = CHECKS.filter(([id]) => credits[id] === 1).length;
+    const failedCount = CHECKS.length - passedCount;
+    const score = Math.round((passedCount / CHECKS.length) * 100);
+    const criticalCount = CRITICAL.filter((id) => credits[id] !== 1).length;
+
+    let scoreLabel = passedCount + ' / ' + CHECKS.length + ' 항목 충족';
+    let scoreColor = '#1E8E3E';
+    let scoreBg = '#E8F5E9';
+    if (criticalCount > 0) { scoreColor = '#D70015'; scoreBg = '#FCE9E9'; }
+    else if (failedCount > 0) { scoreColor = '#B25E09'; scoreBg = '#FEF3E7'; }
+
+    // 유형별 요약: 그룹별 충족 수 (가중치 없이 개수만)
+    const groupSummary = ['① 필수항목', '② 표현', '③ 과도한 수집', '④ 동의 절차'].map((g) => {
+      const list = CHECKS.filter((c) => c[1] === g);
+      const ok = list.filter((c) => credits[c[0]] === 1).length;
+      const all = ok === list.length;
+      return { text: g + ' ' + ok + '/' + list.length, color: all ? '#1E8E3E' : '#D70015', bg: all ? '#E8F5E9' : '#FCE9E9' };
+    });
+    const checklist = CHECKS.map(([id, group, label, criteria, legal]) => {
+      const ok = credits[id] === 1;
+      return {
+        label,
+        weightLabel: group + ' · ' + legal.split(' (')[0],
+        passed: ok,
+        failed: !ok,
+        iconBg: ok ? '#E8F5E9' : '#FCE9E9',
+        deductionLabel: ok ? '충족' : '미충족'
+      };
+    });
+
+    const issues = an.cards.map((c, i) => {
+      const open = !!(this.state.openCards || {})[i];
+      return Object.assign({}, c, {
+        isOpen: open,
+        chevronRotate: open ? 'rotate(180deg)' : 'rotate(0deg)',
+        toggle: () => this.setState({ openCards: Object.assign({}, this.state.openCards, { [i]: !open }) })
+      });
+    });
+    const hasCritical = criticalCount > 0;
+    const criticalText = '법 위반 소지 항목 ' + criticalCount + '건 (점수와 별도 표시)';
+
+    return {
+      mode,
+      isUrl,
+      isText,
+      isEditing: screen === 'edit',
+      isLoading: screen === 'loading',
+      isResult: screen === 'result',
+      urlValue: this.state.urlValue,
+      textValue: this.state.textValue,
+      hasError: !!this.state.errorMessage,
+      groupSummary,
+      methodRows,
+      toggleMethod,
+      showMethod: !!this.state.showMethod,
+      methodChevron: this.state.showMethod ? 'rotate(180deg)' : 'rotate(0deg)',
+      hasUrlNotice: isUrl && !!this.state.urlNotice,
+      errorMessage: this.state.errorMessage,
+      urlTabStyle: this.tabStyle(isUrl),
+      textTabStyle: this.tabStyle(isText),
+      score,
+      scoreLabel,
+      scoreColor,
+      scoreBg,
+      checklist,
+      issues,
+      hasIssues: issues.length > 0,
+      noIssues: issues.length === 0,
+      hasCritical,
+      criticalText,
+      setUrlMode,
+      setTextMode,
+      onUrlChange,
+      onTextChange,
+      onSubmit,
+      reset
+    };
+  }
+}
+</script>
+</body>
+</html>
