@@ -1,119 +1,184 @@
 # LLM 기반 설문 동의서 개인정보 컴플라이언스 체커
 
-설문·연구 동의서 문구를 개인정보보호법 기준으로 점검해 항목별 충족/미충족, 항목 충족률, 문제 조항 원문과 수정 제안, 법적 근거를 보여주는 웹앱입니다.
+설문·연구 동의서 문구(또는 폼 링크)를 넣으면 개인정보 보호법 기준으로 점검 항목 10개의 충족/미충족, 항목 충족률, 문제 조항 원문과 수정 제안, 법적 근거를 보여주는 웹앱입니다.
 
-현재 단계는 **프론트엔드 데모 v1.1(6주차)을 React + Vite 구조로 옮긴 상태**입니다. 분석은 규칙 기반 목업(`mockAnalyzer.js`)이 하고 있으며, LLM·백엔드·링크 자동 분석은 9주차 이후에 붙입니다.
+```
+[입력: 텍스트 / 폼 링크]
+        │  (링크면) POST /api/extract ── Playwright로 폼을 열어 동의 문구만 추출
+        ▼
+POST /api/analyze ── 법령 지식베이스 검색(RAG) → GPT 판정(JSON 스키마) → 검증 → 캐시
+        │  실패(API 키 없음·연결 오류 등)
+        └──────────────▶ 프론트엔드 규칙 기반 분석기로 대체 (화면에 "규칙 기반 분석" 표시)
+        ▼
+[결과: 항목 충족률 · 10개 항목 · 수정 제안 카드 · 참고한 법 조항]
+```
 
 ## 실행 방법
 
-Node.js 20 이상이 필요합니다.
+Node.js 20 이상, Python 3.10 이상이 필요합니다.
+
+### 1) 백엔드 (FastAPI)
+
+```bash
+cd backend
+pip install -r requirements.txt
+playwright install chromium          # 링크 자동 읽기용 브라우저 (처음 한 번)
+copy .env.example .env               # macOS/Linux: cp .env.example .env
+# .env 의 OPENAI_API_KEY= 뒤에 키를 넣는다
+uvicorn api.main:app --reload --port 8000
+```
+
+- API 키가 없어도 서버는 뜹니다. 이때 화면은 자동으로 규칙 기반 분석을 씁니다.
+- 명세: [docs/API.md](docs/API.md), 서버 실행 후 http://localhost:8000/docs
+
+### 2) 프론트엔드 (React + Vite)
 
 ```bash
 cd frontend
 npm install       # 처음 한 번
-npm run dev       # 개발 서버 → http://localhost:5173
-npm test          # 회귀 테스트 (Vitest)
-npm run build     # 배포용 빌드 → frontend/dist
+npm run dev       # http://localhost:5173  (/api 요청은 8000번 백엔드로 프록시)
 ```
 
-> Windows에서 `Cannot find native binding` 오류가 나면 `node_modules`와 `package-lock.json`을 지우고 `npm install`을 다시 실행하세요. (npm의 optional dependency 버그)
+### 시연용: 서버 하나로 실행
+
+```bash
+cd frontend && npm run build
+cd ../backend && uvicorn api.main:app --port 8000
+# http://localhost:8000 에서 화면과 API를 함께 제공
+```
+
+> Windows에서 `Cannot find native binding` 오류가 나면 `node_modules`와 `package-lock.json`을 지우고 `npm install`을 다시 실행하세요.
+
+### 테스트
+
+```bash
+cd frontend && npm test        # 화면·규칙 분석기 회귀(검증표 25종)·API 연동 로직
+cd backend  && pytest          # RAG 검색·LLM 응답 검증·캐시·API·링크 추출 (API 키 불필요, 모델은 가짜로 대체)
+```
 
 ## 폴더 구조
 
 ```
 생성형/
-├─ docs/                          # 원본 자료 (수정하지 않음)
-│  ├─ Main.dc.html                # 6주차 단일 파일 데모 (이전 원본)
+├─ docs/
+│  ├─ Main.dc.html                 # 6주차 단일 파일 데모 (원본, 수정하지 않음)
 │  ├─ 생성형AI캡스톤_주차별보고서_길보경.docx
-│  └─ 정확도_검증표.xlsx           # 샘플 25종 · 항목별 정답
-├─ frontend/                      # React + Vite
-│  ├─ index.html, package.json, vite.config.js
+│  ├─ 정확도_검증표.xlsx            # 샘플 25종 · 항목별 정답
+│  ├─ API.md                       # API 명세
+│  └─ eval/llm_eval.md, .json      # 정량 평가 결과 (python -m eval.run_eval)
+├─ backend/                        # 9~13주차
+│  ├─ api/main.py                  # FastAPI: /api/health, /api/analyze, /api/extract (+ 빌드된 화면 제공)
+│  ├─ rag/
+│  │  ├─ law_articles.json         # 법령 지식베이스: 개인정보 보호법 조항·PIPC 안내서 요지 15개
+│  │  └─ retriever.py              # 글자 2-gram TF-IDF 검색 (외부 벡터DB 없이)
+│  ├─ analysis/
+│  │  ├─ checks.py                 # 점검 항목 10개 (frontend/src/lib/checks.js 와 동일, 테스트로 동기화 확인)
+│  │  ├─ prompt.py                 # 시스템 프롬프트 · 출력 JSON 스키마 · PROMPT_VERSION
+│  │  └─ llm_analyzer.py           # OpenAI 호출 · 응답 검증 · 결과 캐시
+│  ├─ crawl/extractor.py           # 폼 링크 → 동의 문구 (Playwright, 내부망 주소 차단)
+│  ├─ eval/run_eval.py             # 검증표 25종으로 LLM vs 규칙 정확도·정밀도·재현율
+│  ├─ tests/test_backend.py
+│  ├─ requirements.txt, .env.example, pytest.ini
+├─ frontend/
 │  ├─ src/
-│  │  ├─ main.jsx, App.jsx        # 화면 상태: 입력 → 분석 중 → 결과
-│  │  ├─ styles.css               # 공통 스타일 (데모 <style> 그대로)
-│  │  ├─ pages/
-│  │  │  ├─ InputPage.jsx         # URL / 텍스트 탭, 입력 검증, 샘플 불러오기, 링크 안내
-│  │  │  ├─ LoadingPage.jsx       # 분석 중
-│  │  │  └─ ResultPage.jsx        # 결과 화면 조립
-│  │  ├─ components/
-│  │  │  ├─ ScoreCard.jsx         # 항목 충족률 N% · N / 10 항목 충족 · 법 위반 소지 N건 · 그룹 칩
-│  │  │  ├─ Checklist.jsx         # 점검 항목 10개 (근거 조항)
-│  │  │  ├─ MethodPanel.jsx       # "점수는 왜 이렇게 계산하나요?"
-│  │  │  ├─ IssueCard.jsx         # 수정 제안 카드 (원문 → 수정 문구, 접기식 설명·법적 근거)
-│  │  │  ├─ Chevron.jsx, colors.js
-│  │  ├─ lib/                     # UI와 분리된 순수 로직
-│  │  │  ├─ checks.js             # 점검 항목 10개 · 판정 기준 · 근거 조항 · 그룹 · 법 위반 소지 항목
-│  │  │  ├─ mockAnalyzer.js       # analyze(text) → { credits, cards } (백엔드 연동 시 API 호출로 교체)
-│  │  │  └─ scoring.js            # 항목 충족률 · 법 위반 소지 건수 · 그룹별 요약
-│  │  └─ data/samples/demo.js     # 1주차 [X] 예시 (샘플 불러오기)
-│  └─ tests/
-│     ├─ fixtures/accuracy_samples.json   # 검증표 25종 (원문 · 정답 · 검증표 당시 시스템 판정)
-│     ├─ analyzer.test.js         # 25종 × 10항목 회귀 테스트
-│     ├─ scoring.test.js          # 점수 계산
-│     └─ ui.test.jsx              # 화면 렌더링
-├─ tools/
-│  ├─ extract_consent.py          # 폼 링크에서 동의 문구 추출 (Playwright)
-│  └─ xlsx_to_fixture.py          # 검증표 → 테스트 fixture 변환
-└─ README.md
+│  │  ├─ App.jsx                   # 입력 → (링크 읽기) → 분석 중 → 결과
+│  │  ├─ pages/                    # InputPage, LoadingPage, ResultPage
+│  │  ├─ components/               # ScoreCard, Checklist, MethodPanel, IssueCard …
+│  │  ├─ lib/
+│  │  │  ├─ api.js                 # 백엔드 호출, 실패 시 규칙 기반으로 대체
+│  │  │  ├─ checks.js              # 점검 항목 10개 · 판정 기준 · 근거 조항
+│  │  │  ├─ mockAnalyzer.js        # 규칙 기반 분석기 (오프라인 대체용)
+│  │  │  └─ scoring.js             # 항목 충족률 · 법 위반 소지 건수 · 그룹별 요약
+│  │  └─ data/samples/demo.js
+│  └─ tests/                       # analyzer(25종 회귀) · scoring · ui · api
+└─ tools/
+   ├─ extract_consent.py           # 링크 추출 명령줄 버전 (backend/crawl 재사용)
+   └─ xlsx_to_fixture.py           # 검증표 → 테스트 fixture
 ```
 
-### 보고서 구성안(5주차 4장 "목표 구성")과 다른 점
+## 분석 방식
 
-| 구성안 | 현재 | 이유 |
-|---|---|---|
-| `consent-checker/` 최상위 폴더 | `생성형/` 폴더가 그 역할 | 작업 폴더를 그대로 사용 |
-| `backend/` (rag, analysis, api, eval) | 만들지 않음 | 9주차 이후 범위 |
-| `lib/scoring.js`: 배점 · 치명 항목 · 등급 계산 | 항목 충족률 · 법 위반 소지 건수만 | 6주차에 배점·부분 점수·등급 구간을 없앤 개정을 따름 |
-| (없음) | `lib/checks.js` | 점검 항목 상수를 분석기·점수·화면이 함께 쓰도록 분리 |
-| 정확도 평가는 `backend/eval/` | `frontend/tests/` | 분석기가 아직 프론트엔드에 있어 Vitest로 바로 검증 |
-
-## 점수 체계 (6주차)
+### 점검 항목·점수 (6주차 체계 유지)
 
 - 점검 항목 10개(1a 1b 1c 2a 2b 2c 3a 3b 4a 4b)를 충족/미충족으로만 판정
 - **점수 = round(충족 항목 수 ÷ 10 × 100)**, 가중치·부분 점수·등급 구간 없음
-- 3b(민감·고유식별정보), 4b(강제 동의)는 점수와 별도로 "법 위반 소지 항목 N건"으로 표시
-- 항목·판정 기준·근거 조항은 `frontend/src/lib/checks.js`
+- 3b(민감·고유식별정보), 4b(강제 동의)는 "법 위반 소지 항목 N건"으로 따로 표시
+- AI 분석과 규칙 분석 모두 같은 판정 기준(`checks.js` / `checks.py`)을 쓰고, 점수 계산은 화면의 `scoring.js` 하나로 합니다.
 
-## 회귀 테스트 (정확도 검증표)
+### AI 분석 (backend)
 
-`npm test`는 `docs/정확도_검증표.xlsx`의 샘플 25종을 분석기에 넣어 항목별 정답과 비교합니다. **분석기를 고칠 때마다 통과해야 합니다.**
+1. **RAG 검색**: 점검 항목마다 (항목 설명 + 판정 기준 + 동의서 앞부분)으로 법령 지식베이스를 검색해 관련 조항을 모읍니다.
+2. **판정**: OpenAI GPT(기본 `gpt-5.5`)에 판정 기준과 검색된 조항을 주고, 라벨이 없는 문장형 동의서도 목적·항목·기간을 찾아 10개 항목을 판정하게 합니다. 결과는 JSON 스키마(구조화 출력)로 받습니다.
+3. **검증**: 10개 항목이 다 있는지, 충족 항목에 카드가 붙지 않았는지 확인하고, 목적이 없는데 "목적 표현 충족" 같은 모순은 규칙으로 바로잡습니다. 법적 근거는 검색된 조항만 인용하게 합니다.
+4. **재현성**: 같은 문구는 저장된 결과를 돌려줘 점수가 바뀌지 않습니다. 모델·프롬프트를 바꾸면(`PROMPT_VERSION`) 캐시가 새로 쌓입니다.
+5. **개인정보**: 동의서 원문은 서버 로그에 남기지 않습니다(길이만 기록). AI 분석 시 문구가 OpenAI API로 전송된다는 안내를 입력 화면에 표시합니다.
 
-- 현재: 항목 일치 **244/250 = 97.6%**, 25종 중 **24종 완전 일치** (보고서 6주차 수치와 동일)
-- R03(라벨 없는 서술문)은 **알려진 한계**로 `it.fails`로 표시되어 실패로 치지 않습니다. 규칙이 바뀌어 R03이 정답과 맞게 되면 테스트가 알려 주므로, 그때 `KNOWN_LIMITATIONS`에서 빼면 됩니다.
-- 전체 일치율이 244/250 또는 완전 일치 24종 아래로 내려가면 실패합니다.
+설정(`backend/.env`): `OPENAI_API_KEY`, `CONSENT_LLM_MODEL`(기본 `gpt-5.5`), `CONSENT_LLM_EFFORT`(추론 강도, 기본 `low`. gpt-4o처럼 추론 모델이 아니면 빈 값으로).
 
-검증표의 정답(파란 칸)을 고쳤다면 fixture를 다시 만드세요.
+### 규칙 기반 분석 (frontend, 대체용)
 
-```bash
-pip install openpyxl
-python tools/xlsx_to_fixture.py
-```
+6주차 분석기 그대로입니다. 서버가 없거나 API 키가 없을 때 쓰이며, 결과 화면 위에 "규칙 기반 분석"과 그 이유가 표시됩니다.
 
-## 링크에서 동의 문구 뽑기 (임시, 화면과 연결 안 됨)
-
-화면의 URL 탭은 아직 링크 내용을 읽지 못하고 안내만 보여줍니다. 그동안은 아래 스크립트로 문구를 뽑아 **텍스트 붙여넣기** 탭에 넣으세요.
+## 정량 평가
 
 ```bash
-pip install playwright
-playwright install chromium
-python tools/extract_consent.py "<폼 주소>"
-python tools/extract_consent.py "<폼 주소>" --out consent.txt   # 파일로 저장
+cd backend
+python -m eval.run_eval --rules-only   # 비용 없음: 규칙 기반 기준선만
+python -m eval.run_eval                # LLM 평가: API 호출 25회 (gpt-5.5 기준 약 4분, 캐시된 샘플은 무료)
+python -m eval.run_eval --only R03     # 일부 샘플만
 ```
 
-로그인이 필요한 폼이나 비공개 폼은 읽지 못합니다. 실제 네이버폼에서는 아직 시험하지 않았습니다(6주차 보고서). 화면과 자동으로 연결하는 작업은 백엔드 단계에서 합니다.
+결과는 `docs/eval/llm_eval.md`에 표로 저장됩니다. '미충족'을 양성(문제 탐지)으로 보고 정밀도·재현율을 함께 계산합니다.
 
-## 데모(Main.dc.html)와 달라진 점
+| 방식 | 항목 일치 | 완전 일치 | 정밀도 | 재현율 | 불일치 |
+|---|---|---|---|---|---|
+| 규칙 기반 | 244/250 = 97.6% | 24/25 | 0.806 | 1.0 | R03(라벨 없는 서술문) |
+| LLM + RAG (gpt-5.5) | 248/250 = 99.2% | 23/25 | 0.96 | 0.96 | H02(2c) H14(2a) |
 
-- **샘플 불러오기 버튼 추가**: 텍스트 탭 안내 문구 아래에 있습니다. 1주차 [X] 예시(`DEMO_TEXT`)를 채우고 오류 문구를 지웁니다.
-- **빈 입력 시 DEMO_TEXT 대체 분석 제거**: 데모에서는 실제로 실행되지 않던 코드(텍스트는 10자 이상이어야 제출됨)라 화면 동작은 같습니다.
-- **분석 시점**: 데모는 결과를 그릴 때마다 분석했고, 이번 버전은 제출할 때 한 번만 분석합니다. 결과는 같습니다.
-- 그 밖의 화면 구성, 문구, 색, 여백, 1.6초 로딩, 입력 검증 메시지는 데모와 같습니다. `analyze()`는 데모 원본과 출력(credits·카드)이 같은지 25종과 추가 입력 6개로 확인했습니다.
+- LLM은 규칙 분석이 못 읽던 문장형 동의서(R03)를 10개 항목 모두 맞혔습니다. 대신 실행할 때마다 1~2개 항목이 흔들립니다. 1차 실행(프롬프트 v1)은 246/250이었고, 틀린 4건이 모두 2a(목록에 없는 "서비스 제공", "당첨 안내"까지 모호하다고 판정)였습니다. 프롬프트에 "목록에 있는 표현만"이라고 명시한 2차 실행(v2)이 위 수치입니다. 같은 샘플을 보고 프롬프트를 고쳤으므로 이 수치도 과대평가일 수 있습니다. 그래서 아래 새 샘플로 다시 쟀습니다.
+- 정답은 직접 법 조항과 대조해 작성했고 전문가 검수는 거치지 않았습니다.
+- 규칙 기반 수치는 같은 샘플로 규칙을 고친 결과라 과대평가 가능성이 있습니다. LLM은 이 샘플로 학습·조정하지 않았지만, 프롬프트의 "운영 규칙"은 검증표 정답 기준에 맞춰 적었습니다.
 
-## 알려진 문제
+### 새 샘플(held-out) 평가
 
-- **라벨 없는 문장형 동의서(R03)는 읽지 못함**: 규칙 기반의 구조적 한계이며 LLM 단계에서 다룰 예정입니다.
-- **카드의 "문제 원문" 줄바꿈·탭 정리가 동작하지 않음** (`mockAnalyzer.js`의 `extract`)
-  - 원인: 데모 원본 정규식 `/\\s*\\n\\s*/g`, `/\\t+/g`에 백슬래시가 두 번 들어가, 실제 줄바꿈·탭이 아닌 글자 `\n`, `\t`를 찾습니다.
-  - 증상: 라벨이 따로 한 줄에 있거나 표에서 복사한 입력에서 그 조항이 문제로 잡히면, 카드 원문에 줄바꿈·탭이 그대로 남습니다.
-  - 영향 범위: 점수와 판정에는 영향이 없고, 검증표 25종에서는 나타나지 않습니다.
-  - 이번에는 "동작을 바꾸지 않고 옮기기" 원칙에 따라 그대로 두었습니다.
+규칙과 프롬프트를 고칠 때 보지 않은 새 샘플 15종(`backend/eval/heldout_samples.json`)으로 다시 쟀습니다. 라벨 없는 서술문, 문답형, 표 복사(낯선 라벨), 필수·선택 분리 동의서, "열흘"·"졸업 시까지"·"필요한 기간 동안" 같은 처음 보는 표현을 넣었습니다. 규칙 기반은 지금의 `mockAnalyzer.js`를 그대로 돌린 결과입니다.
+
+```
+cd backend
+python -m eval.run_eval --fixture eval/heldout_samples.json   # → docs/eval/heldout_eval.md
+```
+
+| 방식 | 항목 일치 | 완전 일치 | 정밀도 | 재현율 | 불일치 |
+|---|---|---|---|---|---|
+| 규칙 기반 | 125/150 = 83.3% | 8/15 | 0.46 | 0.82 | N01 N02 N06 N07 N09 N12 N15 |
+| LLM + RAG (gpt-5.5) | 150/150 = 100% | 15/15 | 1.0 | 1.0 | 없음 (캐시 없이 2회 실행 모두 같음) |
+
+- 규칙 기반은 라벨이 없거나(N01·N02·N06) 낯선 라벨(N15 "수집하는 정보", "보관 기간")이면 목적·항목·기간을 못 찾고, 그 결과 2a~2c까지 연쇄로 틀립니다. "열흘"(N09), 한 줄에 필수·선택이 섞인 경우(N12), "동의한 분만 제출할 수 있습니다"(N07) 같은 강제 문구도 놓쳤습니다.
+- 25종 평가(97.6%)와 새 샘플 평가(83.3%)의 차이가 규칙 기반이 검증표에 맞춰진 정도를 보여 줍니다. LLM은 두 평가셋에서 모두 99% 이상이었습니다.
+- 15종은 작은 표본이고 정답은 직접 작성했습니다. 100%는 "이 샘플에서 틀린 항목이 없었다"는 뜻이지 오류가 없다는 뜻이 아닙니다.
+
+### 회귀 테스트 (규칙 분석기)
+
+`npm test`는 검증표 25종을 규칙 분석기에 넣어 정답과 비교합니다. 244/250, 완전 일치 24종 아래로 내려가면 실패합니다. R03은 규칙 분석기의 알려진 한계로 `it.fails` 처리되어 있습니다(AI 분석은 R03을 다룰 수 있도록 설계됨). 검증표 정답을 고쳤다면 `python tools/xlsx_to_fixture.py`로 fixture를 다시 만드세요.
+
+## 링크 읽기
+
+화면의 URL 탭에 폼 링크를 넣으면 서버가 헤드리스 브라우저로 폼을 열어 '개인정보 … 동의' 근처 문구만 잘라 분석합니다. 결과 화면의 "링크에서 읽어 온 동의 문구"에서 실제로 읽은 내용을 확인할 수 있습니다.
+
+- 로그인이 필요한 폼·비공개 폼은 읽지 못합니다. 실패하면 이유와 함께 텍스트 붙여넣기를 안내합니다.
+- 서버가 대신 여는 주소이므로 localhost·사설 IP는 막습니다.
+- 명령줄로만 뽑으려면 `python tools/extract_consent.py "<폼 주소>" [--out consent.txt]`
+
+## 알려진 한계
+
+- **법령 지식베이스는 조문 요지**입니다. 원문이 아니므로 최종 확인은 국가법령정보센터에서 해야 하며, 법 개정 시 `backend/rag/law_articles.json`을 갱신해야 합니다.
+- **AI 판정은 틀릴 수 있습니다.** 미충족 항목에는 이유가 표시되니 함께 확인하세요. 점수는 참고용이며 법률 의견이 아닙니다.
+- **실제 네이버폼에서의 링크 추출은 폼 구조에 따라 일부 문구가 빠질 수 있습니다.** 화면 구조에 의존하지 않고 글자 패턴으로 찾는 방식입니다.
+
+## 6주차 데모 대비 바뀐 점
+
+- 백엔드(FastAPI) · 법령 RAG · OpenAI GPT 분석 · 링크 자동 읽기 · 정량 평가 스크립트 추가
+- URL 탭이 실제로 링크를 읽음 (실패 시 이유 표시)
+- 결과 화면: 분석 방식 배지, 미충족 항목 이유, 참고한 법 조항, 링크에서 읽은 문구
+- 규칙 분석기의 카드 원문 줄바꿈·탭 정리 버그 수정 (`mockAnalyzer.js`의 정규식 백슬래시 중복 — 점수에는 영향 없었음)
+- 분석 중 화면 최소 표시 시간 1.6초 → 1.2초 (실제 분석 시간이 생겼으므로)

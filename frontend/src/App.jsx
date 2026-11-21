@@ -2,27 +2,31 @@ import { useState } from 'react';
 import InputPage from './pages/InputPage.jsx';
 import LoadingPage from './pages/LoadingPage.jsx';
 import ResultPage from './pages/ResultPage.jsx';
-import { analyze } from './lib/mockAnalyzer.js';
+import { runAnalysis, extractFromUrl } from './lib/api.js';
+
+const MIN_LOADING_MS = 1200; // 너무 빨리 끝나도 분석 중 화면이 깜빡이지 않게
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // 화면 흐름: 입력(edit) → 분석 중(loading) → 결과(result) → "다시 분석하기"로 입력 복귀
 export default function App() {
   const [screen, setScreen] = useState('edit');
+  const [loadingStep, setLoadingStep] = useState('analyze');
   const [mode, setMode] = useState('url');
   const [urlValue, setUrlValue] = useState('');
   const [textValue, setTextValue] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [urlNotice, setUrlNotice] = useState(false);
+  const [urlNotice, setUrlNotice] = useState('');
   const [analysis, setAnalysis] = useState(null);
 
   const changeMode = (next) => {
     setMode(next);
     setErrorMessage('');
-    setUrlNotice(false);
+    setUrlNotice('');
   };
 
   const onUrlChange = (v) => {
     setUrlValue(v);
-    setUrlNotice(false);
+    setUrlNotice('');
   };
 
   const loadSample = (text) => {
@@ -30,7 +34,22 @@ export default function App() {
     setErrorMessage('');
   };
 
-  const onSubmit = () => {
+  const analyzeText = async (text, source) => {
+    setLoadingStep('analyze');
+    const started = Date.now();
+    try {
+      const result = await runAnalysis(text);
+      await wait(Math.max(0, MIN_LOADING_MS - (Date.now() - started)));
+      setAnalysis({ ...result, sourceText: text, source });
+      setScreen('result');
+    } catch (e) {
+      setScreen('edit');
+      setErrorMessage(e.message);
+    }
+  };
+
+  const onSubmit = async () => {
+    setErrorMessage('');
     if (mode === 'url') {
       const v = (urlValue || '').trim();
       if (!v) {
@@ -41,9 +60,20 @@ export default function App() {
         setErrorMessage('http:// 또는 https:// 로 시작하는 URL을 입력해 주세요');
         return;
       }
-      // 링크 안의 동의서는 서버가 대신 읽어 와야 해서(백엔드 단계) 가짜 결과를 보여주지 않는다
-      setUrlNotice(true);
-      setErrorMessage('');
+      setUrlNotice('');
+      setLoadingStep('extract');
+      setScreen('loading');
+      let text;
+      try {
+        text = await extractFromUrl(v);
+      } catch (e) {
+        // 링크를 못 읽으면 가짜 결과 대신 이유와 텍스트 붙여넣기 안내를 보여준다
+        setScreen('edit');
+        setUrlNotice(e.message);
+        return;
+      }
+      setTextValue(text);
+      await analyzeText(text, 'url');
       return;
     }
     const v = (textValue || '').trim();
@@ -52,9 +82,7 @@ export default function App() {
       return;
     }
     setScreen('loading');
-    setErrorMessage('');
-    setAnalysis(analyze(textValue || ''));
-    setTimeout(() => setScreen('result'), 1600);
+    await analyzeText(textValue, 'text');
   };
 
   const reset = () => {
@@ -63,16 +91,20 @@ export default function App() {
   };
 
   return (
-    <div style={{ width: '100%', minHeight: 900, background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '96px 24px 120px' }}>
-      <div style={{ width: '100%', maxWidth: 560, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div className="app">
+      <header className="topbar">
         <Logo />
+        <span>동의서 점검</span>
+        <small>개인정보 보호법 기준 · 참고용</small>
+      </header>
+      <main className="main">
         {screen === 'edit' && (
           <InputPage
             mode={mode}
             urlValue={urlValue}
             textValue={textValue}
             errorMessage={errorMessage}
-            urlNotice={mode === 'url' && urlNotice}
+            urlNotice={mode === 'url' ? urlNotice : ''}
             onModeChange={changeMode}
             onUrlChange={onUrlChange}
             onTextChange={setTextValue}
@@ -80,21 +112,19 @@ export default function App() {
             onSubmit={onSubmit}
           />
         )}
-        {screen === 'loading' && <LoadingPage />}
+        {screen === 'loading' && <LoadingPage step={loadingStep} />}
         {screen === 'result' && analysis && <ResultPage analysis={analysis} onReset={reset} />}
-      </div>
+      </main>
     </div>
   );
 }
 
 function Logo() {
   return (
-    <div style={{ width: 44, height: 44, borderRadius: 12, background: '#1D1D1F', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 28 }}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M6 4H14L19 9V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V5C5 4.44772 5.44772 4 6 4Z" stroke="#ffffff" strokeWidth="1.5" strokeLinejoin="round" />
-        <path d="M14 4V9H19" stroke="#ffffff" strokeWidth="1.5" strokeLinejoin="round" />
-        <path d="M8.5 13.5L10.5 15.5L15 11" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </div>
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <rect width="28" height="28" rx="7" fill="#2A9FDD" />
+      <path d="M9 6.5h7l4 4V21a.5.5 0 0 1-.5.5h-10.5A.5.5 0 0 1 8.5 21V7a.5.5 0 0 1 .5-.5Z" fill="#fff" />
+      <path d="M11.5 15l2 2 3.5-4" stroke="#0A7EBF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

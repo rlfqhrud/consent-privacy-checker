@@ -12,7 +12,7 @@ const input = (props) => renderToStaticMarkup(
   <InputPage mode="url" urlValue="" textValue="" errorMessage="" urlNotice={false}
     onModeChange={noop} onUrlChange={noop} onTextChange={noop} onLoadSample={noop} onSubmit={noop} {...props} />
 );
-const result = (text) => renderToStaticMarkup(<ResultPage analysis={analyze(text)} onReset={noop} />);
+const result = (text, extra = {}) => renderToStaticMarkup(<ResultPage analysis={{ ...analyze(text), ...extra }} onReset={noop} />);
 
 describe('입력 화면', () => {
   it('URL / 텍스트 탭', () => {
@@ -22,10 +22,15 @@ describe('입력 화면', () => {
     expect(html).toContain('네이버폼 링크');
   });
 
-  it('링크 제출 시 가짜 결과 대신 안내와 텍스트 탭 전환 버튼', () => {
-    const html = input({ urlNotice: true });
-    expect(html).toContain('링크 안의 동의서는 아직 자동으로 읽어 올 수 없어요');
+  it('링크를 못 읽으면 가짜 결과 대신 이유와 텍스트 탭 전환 버튼', () => {
+    const html = input({ urlNotice: '폼에서 개인정보 동의 문구를 찾지 못했어요.' });
+    expect(html).toContain('링크에서 동의서를 읽어 오지 못했어요');
+    expect(html).toContain('폼에서 개인정보 동의 문구를 찾지 못했어요.');
     expect(html).toContain('텍스트로 붙여넣기 →');
+  });
+
+  it('AI 분석 시 외부 API 전송 안내', () => {
+    expect(input()).toContain('OpenAI API로 전송');
   });
 
   it('텍스트 탭에 샘플 불러오기 버튼', () => {
@@ -60,6 +65,27 @@ describe('결과 화면', () => {
     const html = result(samples.find((s) => s.id === 'H12').text);
     expect(html).toContain('6 / 10 항목 충족');
     expect(html).toContain('법 위반 소지 항목 1건 (점수와 별도 표시)');
+  });
+
+  it('AI 분석 결과: 배지 · 미충족 항목 이유 · 참고 조항', () => {
+    const html = result(DEMO_TEXT, {
+      engine: 'llm',
+      details: { '2b': { evidence: '이름, 휴대폰 전화번호 등', reason: '항목이 "등"으로 끝나 범위가 열려 있어요' } },
+      sources: [{ id: 'PIPA-15-2', citation: '개인정보 보호법 제15조제2항(동의를 받을 때 알려야 할 사항)' }]
+    });
+    expect(html).toContain('AI 분석 · 법 조항 검색(RAG)');
+    expect(html).toContain('항목이 &quot;등&quot;으로 끝나 범위가 열려 있어요');
+    expect(html).toContain('참고한 법 조항</p><ul><li>개인정보 보호법 제15조제2항');
+  });
+
+  it('규칙 기반으로 대체되면 이유 표시', () => {
+    const html = result(DEMO_TEXT, { engine: 'rules', fallbackReason: '분석 서버에 연결하지 못했어요' });
+    expect(html).toContain('규칙 기반 분석');
+    expect(html).toContain('AI 분석을 쓸 수 없어 규칙으로 점검했어요 (분석 서버에 연결하지 못했어요)');
+  });
+
+  it('링크로 분석하면 읽어 온 문구 패널', () => {
+    expect(result(DEMO_TEXT, { source: 'url', sourceText: DEMO_TEXT })).toContain('링크에서 읽어 온 동의 문구');
   });
 
   it('문제가 없으면 안내 문구', () => {

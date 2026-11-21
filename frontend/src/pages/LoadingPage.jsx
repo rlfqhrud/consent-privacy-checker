@@ -1,9 +1,18 @@
-export default function LoadingPage() {
+const MESSAGES = {
+  extract: ['링크에서 동의서를 읽고 있어요', '폼 페이지를 열어 개인정보 동의 문구를 찾는 중'],
+  analyze: ['동의서를 분석하고 있어요', '관련 법 조항을 찾아 필수항목 · 표현 · 과도수집 · 동의절차를 확인하는 중']
+};
+
+export default function LoadingPage({ step = 'analyze' }) {
+  const [title, sub] = MESSAGES[step] || MESSAGES.analyze;
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '64px 40px' }}>
-      <div className="dcc-spinner" style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid #E5E5EA', borderTopColor: '#0071E3', marginBottom: 24 }} />
-      <p style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 500, color: '#1D1D1F', textAlign: 'center' }}>동의서를 분석하고 있어요</p>
-      <p style={{ margin: 0, fontSize: 14, color: '#86868B', textAlign: 'center' }}>필수항목 · 표현 · 과도수집 · 동의절차를 확인하는 중</p>
-    </div>
+    <section className="sheet" aria-live="polite" aria-busy="true">
+      <div className="band"><h2>점검 진행 중</h2></div>
+      <div className="loading">
+        <div className="track" />
+        <p className="title">{title}</p>
+        <p className="sub">{sub}</p>
+      </div>
+    </section>
   );
 }

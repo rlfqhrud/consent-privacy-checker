@@ -1,4 +1,4 @@
-// 규칙 기반 목업 분석 (실제 LLM 분석은 백엔드 연동 후 대체)
+// 규칙 기반 분석 (백엔드 AI 분석을 쓸 수 없을 때의 대체 분석기 · lib/api.js 참고)
 // docs/Main.dc.html 의 analyze(text)를 동작 변경 없이 옮긴 순수 함수.
 // 규칙을 고치면 tests/analyzer.test.js(정확도 검증표 25종)가 통과해야 한다.
 //
@@ -21,9 +21,8 @@ export function analyze(text) {
     if (!m) return { value: '', line: '' };
     const value = m[1].trim();
     if (!value || /^(?:수집|보유|이용)/.test(value)) return { value: '', line: '' };
-    // 알려진 문제: 아래 두 정규식은 데모 원본 그대로라 백슬래시가 두 번 들어가 있어
-    // 실제 줄바꿈·탭이 아닌 글자 "\n", "\t"를 찾는다. 점수(credits)에는 영향 없음. README 참고.
-    return { value, line: m[0].replace(/\\s*\\n\\s*/g, ' ').replace(/\\t+/g, ': ').trim() };
+    // 카드에 보여줄 원문 한 줄: 라벨 뒤 줄바꿈은 공백으로, 표에서 복사한 탭은 ': '로 정리
+    return { value, line: m[0].replace(/\s*\n\s*/g, ' ').replace(/\t+/g, ': ').trim() };
   };
   const ex = { purpose: extract('purpose'), items: extract('items'), period: extract('period') };
   const purpose = ex.purpose.value, items = ex.items.value, period = ex.period.value;
